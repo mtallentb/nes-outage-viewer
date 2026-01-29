@@ -161,9 +161,68 @@
       width: 50px;
     }
 
+    .inline-input.coord {
+      width: 75px;
+    }
+
     .inline-input:focus {
       outline: none;
       border-color: #3b82f6;
+    }
+
+    .address-group {
+      flex-shrink: 0;
+    }
+
+    .address-wrapper {
+      position: relative;
+    }
+
+    .address-input {
+      width: 200px;
+    }
+
+    .address-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #0f3460;
+      border: 1px solid #1e4976;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+    }
+
+    .address-dropdown.hidden {
+      display: none;
+    }
+
+    .address-option {
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      border-bottom: 1px solid #1e4976;
+    }
+
+    .address-option:last-child {
+      border-bottom: none;
+    }
+
+    .address-option:hover {
+      background: #1e4976;
+    }
+
+    .address-option-main {
+      color: #fff;
+    }
+
+    .address-option-secondary {
+      color: #888;
+      font-size: 0.7rem;
+      margin-top: 2px;
     }
 
 
@@ -297,11 +356,18 @@
       </div>
     </div>
     <div class="metrics-row">
+      <div class="metrics-group address-group">
+        <div class="metrics-label">Address</div>
+        <div class="address-wrapper">
+          <input type="text" id="inputAddress" placeholder="Search address..." class="inline-input address-input" autocomplete="off">
+          <div id="addressDropdown" class="address-dropdown hidden"></div>
+        </div>
+      </div>
       <div class="metrics-group">
-        <div class="metrics-label">Location</div>
+        <div class="metrics-label">Coords</div>
         <div class="metrics-values">
-          <input type="number" id="inputLat" step="any" placeholder="Lat" class="inline-input">
-          <input type="number" id="inputLng" step="any" placeholder="Lng" class="inline-input">
+          <input type="number" id="inputLat" step="any" placeholder="Lat" class="inline-input coord">
+          <input type="number" id="inputLng" step="any" placeholder="Lng" class="inline-input coord">
         </div>
       </div>
       <div class="metrics-group">
@@ -396,6 +462,73 @@
     function saveSettings(settings) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     }
+
+    // Address search using Nominatim
+    let addressSearchTimer;
+    const addressInput = document.getElementById('inputAddress');
+    const addressDropdown = document.getElementById('addressDropdown');
+
+    async function searchAddress(query) {
+      if (query.length < 3) {
+        addressDropdown.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          q: query,
+          format: 'json',
+          limit: '5',
+          addressdetails: '1'
+        });
+
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+          headers: { 'User-Agent': 'NES-Outage-Dashboard' }
+        });
+        const results = await response.json();
+
+        if (results.length === 0) {
+          addressDropdown.classList.add('hidden');
+          return;
+        }
+
+        addressDropdown.innerHTML = results.map(r => `
+          <div class="address-option" data-lat="${r.lat}" data-lng="${r.lon}">
+            <div class="address-option-main">${r.address?.house_number || ''} ${r.address?.road || r.name || ''}</div>
+            <div class="address-option-secondary">${r.address?.city || r.address?.town || r.address?.village || ''}, ${r.address?.state || ''}</div>
+          </div>
+        `).join('');
+
+        addressDropdown.classList.remove('hidden');
+      } catch (e) {
+        console.error('Address search failed:', e);
+      }
+    }
+
+    addressInput.addEventListener('input', () => {
+      clearTimeout(addressSearchTimer);
+      addressSearchTimer = setTimeout(() => searchAddress(addressInput.value), 300);
+    });
+
+    addressDropdown.addEventListener('click', (e) => {
+      const option = e.target.closest('.address-option');
+      if (option) {
+        const lat = option.dataset.lat;
+        const lng = option.dataset.lng;
+        document.getElementById('inputLat').value = parseFloat(lat).toFixed(6);
+        document.getElementById('inputLng').value = parseFloat(lng).toFixed(6);
+        addressInput.value = option.querySelector('.address-option-main').textContent.trim();
+        addressDropdown.classList.add('hidden');
+        onSettingsChange();
+      }
+    });
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.address-wrapper')) {
+        addressDropdown.classList.add('hidden');
+      }
+    });
 
     // Populate inline inputs with current values
     function populateInputs() {
