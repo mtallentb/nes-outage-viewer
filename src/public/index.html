@@ -41,27 +41,6 @@
       color: #fff;
     }
 
-    .header-controls {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .settings-btn {
-      background: #0f3460;
-      border: 1px solid #1e4976;
-      color: #eee;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.875rem;
-      transition: background 0.2s;
-    }
-
-    .settings-btn:hover {
-      background: #1e4976;
-    }
-
     .auto-refresh {
       display: flex;
       align-items: center;
@@ -168,6 +147,39 @@
       color: #444;
     }
 
+    .inline-input {
+      width: 90px;
+      padding: 4px 8px;
+      background: #0f3460;
+      border: 1px solid #1e4976;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.8rem;
+    }
+
+    .inline-input.radius {
+      width: 50px;
+    }
+
+    .inline-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .icon-btn:hover {
+      background: #0f3460;
+    }
+
     #map {
       flex: 1;
       width: 100%;
@@ -258,116 +270,6 @@
       color: #f87171;
     }
 
-    .overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-    }
-
-    .overlay.hidden {
-      display: none;
-    }
-
-    .modal {
-      background: #16213e;
-      border-radius: 12px;
-      padding: 24px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-
-    .modal h2 {
-      font-size: 1.25rem;
-      margin-bottom: 8px;
-      color: #fff;
-    }
-
-    .modal p {
-      font-size: 0.875rem;
-      color: #888;
-      margin-bottom: 20px;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 0.875rem;
-      color: #aaa;
-      margin-bottom: 6px;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 10px 12px;
-      background: #0f3460;
-      border: 1px solid #1e4976;
-      border-radius: 6px;
-      color: #fff;
-      font-size: 1rem;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: #3b82f6;
-    }
-
-    .form-row {
-      display: flex;
-      gap: 12px;
-    }
-
-    .form-row .form-group {
-      flex: 1;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 12px;
-      background: #3b82f6;
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn:hover {
-      background: #2563eb;
-    }
-
-    .btn:disabled {
-      background: #444;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: #0f3460;
-      margin-top: 8px;
-    }
-
-    .btn-secondary:hover {
-      background: #1e4976;
-    }
-
-    .location-hint {
-      font-size: 0.75rem;
-      color: #666;
-      margin-top: 4px;
-    }
-
     .loading {
       position: absolute;
       top: 50%;
@@ -399,18 +301,29 @@
   <header>
     <div class="header-top">
       <h1>NES Outage Dashboard</h1>
-      <div class="header-controls">
-        <button class="settings-btn" id="settingsBtn">Settings</button>
-        <div class="auto-refresh">
-          <label for="autoRefresh">Auto-refresh</label>
-          <div class="toggle">
-            <input type="checkbox" id="autoRefresh" checked>
-            <span class="toggle-slider"></span>
-          </div>
+      <div class="auto-refresh">
+        <label for="autoRefresh">Auto-refresh</label>
+        <div class="toggle">
+          <input type="checkbox" id="autoRefresh" checked>
+          <span class="toggle-slider"></span>
         </div>
       </div>
     </div>
     <div class="metrics-row">
+      <div class="metrics-group">
+        <div class="metrics-label">Location</div>
+        <div class="metrics-values">
+          <input type="number" id="inputLat" step="any" placeholder="Lat" class="inline-input">
+          <input type="number" id="inputLng" step="any" placeholder="Lng" class="inline-input">
+          <button id="useLocationBtn" class="icon-btn" title="Use my location">📍</button>
+        </div>
+      </div>
+      <div class="metrics-group">
+        <div class="metrics-label">Radius</div>
+        <div class="metrics-values">
+          <input type="number" id="inputRadius" step="0.1" min="0.1" max="50" class="inline-input radius" placeholder="1"> mi
+        </div>
+      </div>
       <div class="metrics-group">
         <div class="metrics-label">Nashville</div>
         <div class="metrics-values">
@@ -468,33 +381,6 @@
     <div>Loading outages...</div>
   </div>
 
-  <!-- Settings Modal -->
-  <div class="overlay hidden" id="settingsOverlay">
-    <div class="modal">
-      <h2>Location Settings</h2>
-      <p>Enter your home coordinates and search radius.</p>
-      <form id="settingsForm">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="inputLat">Latitude</label>
-            <input type="number" id="inputLat" step="any" placeholder="36.1627" required>
-          </div>
-          <div class="form-group">
-            <label for="inputLng">Longitude</label>
-            <input type="number" id="inputLng" step="any" placeholder="-86.7816" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="inputRadius">Radius (miles)</label>
-          <input type="number" id="inputRadius" step="0.1" min="0.1" max="50" placeholder="1" required>
-        </div>
-        <button type="submit" class="btn" id="saveBtn">Save & Apply</button>
-        <button type="button" class="btn btn-secondary" id="useLocationBtn">Use My Location</button>
-        <p class="location-hint">Your location is stored locally in your browser.</p>
-      </form>
-    </div>
-  </div>
-
   <script>
     const STORAGE_KEY = 'nes-outage-settings';
     const REFRESH_INTERVAL_MS = 30000;
@@ -521,12 +407,8 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     }
 
-    // Show/hide settings modal
-    function showSettings() {
-      const overlay = document.getElementById('settingsOverlay');
-      overlay.classList.remove('hidden');
-
-      // Populate form with current values or server defaults
+    // Populate inline inputs with current values
+    function populateInputs() {
       const settings = loadSettings() || serverDefaults;
       if (settings) {
         document.getElementById('inputLat').value = settings.homeLat || '';
@@ -535,8 +417,27 @@
       }
     }
 
-    function hideSettings() {
-      document.getElementById('settingsOverlay').classList.add('hidden');
+    // Get settings from inline inputs
+    function getInputSettings() {
+      const lat = parseFloat(document.getElementById('inputLat').value);
+      const lng = parseFloat(document.getElementById('inputLng').value);
+      const radius = parseFloat(document.getElementById('inputRadius').value) || 1;
+
+      if (isNaN(lat) || isNaN(lng)) {
+        return null;
+      }
+
+      return { homeLat: lat, homeLng: lng, radiusMiles: radius };
+    }
+
+    // Handle input changes
+    function onSettingsChange() {
+      const settings = getInputSettings();
+      if (settings) {
+        saveSettings(settings);
+        currentConfig = null; // Force map reinitialize
+        fetchAndUpdateOutages();
+      }
     }
 
     // Initialize map
@@ -695,10 +596,9 @@
     }
 
     async function fetchAndUpdateOutages() {
-      const settings = loadSettings();
+      const settings = getInputSettings() || loadSettings();
       if (!settings) {
         document.getElementById('loading').style.display = 'none';
-        showSettings();
         return;
       }
 
@@ -759,51 +659,38 @@
       }
     }
 
-    // Event listeners
-    document.getElementById('settingsBtn').addEventListener('click', showSettings);
+    // Event listeners - debounce input changes
+    let debounceTimer;
+    function debouncedSettingsChange() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(onSettingsChange, 500);
+    }
 
-    document.getElementById('settingsOverlay').addEventListener('click', (e) => {
-      if (e.target === e.currentTarget) {
-        hideSettings();
-      }
-    });
+    document.getElementById('inputLat').addEventListener('change', onSettingsChange);
+    document.getElementById('inputLng').addEventListener('change', onSettingsChange);
+    document.getElementById('inputRadius').addEventListener('change', onSettingsChange);
 
-    document.getElementById('settingsForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-
-      const settings = {
-        homeLat: parseFloat(document.getElementById('inputLat').value),
-        homeLng: parseFloat(document.getElementById('inputLng').value),
-        radiusMiles: parseFloat(document.getElementById('inputRadius').value)
-      };
-
-      saveSettings(settings);
-      hideSettings();
-      currentConfig = null; // Force map reinitialize
-      document.getElementById('loading').style.display = 'block';
-      document.getElementById('loading').innerHTML = `
-        <div class="spinner"></div>
-        <div>Loading outages...</div>
-      `;
-      fetchAndUpdateOutages();
-    });
+    document.getElementById('inputLat').addEventListener('input', debouncedSettingsChange);
+    document.getElementById('inputLng').addEventListener('input', debouncedSettingsChange);
+    document.getElementById('inputRadius').addEventListener('input', debouncedSettingsChange);
 
     document.getElementById('useLocationBtn').addEventListener('click', () => {
       const btn = document.getElementById('useLocationBtn');
       btn.disabled = true;
-      btn.textContent = 'Getting location...';
+      btn.textContent = '...';
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
           document.getElementById('inputLat').value = position.coords.latitude.toFixed(6);
           document.getElementById('inputLng').value = position.coords.longitude.toFixed(6);
           btn.disabled = false;
-          btn.textContent = 'Use My Location';
+          btn.textContent = '📍';
+          onSettingsChange();
         },
         (error) => {
           alert('Could not get your location: ' + error.message);
           btn.disabled = false;
-          btn.textContent = 'Use My Location';
+          btn.textContent = '📍';
         }
       );
     });
@@ -818,7 +705,7 @@
 
     // Initial load
     async function init() {
-      // Fetch server defaults and auto-apply if no local settings
+      // Fetch server defaults
       try {
         const response = await fetch('/api/config');
         const config = await response.json();
@@ -836,6 +723,9 @@
       } catch (e) {
         // Server config not available
       }
+
+      // Populate inputs with saved or default values
+      populateInputs();
 
       fetchAndUpdateOutages();
       startAutoRefresh();
