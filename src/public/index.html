@@ -166,19 +166,6 @@
       border-color: #3b82f6;
     }
 
-    .icon-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 1rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      transition: background 0.2s;
-    }
-
-    .icon-btn:hover {
-      background: #0f3460;
-    }
 
     #map {
       flex: 1;
@@ -315,7 +302,6 @@
         <div class="metrics-values">
           <input type="number" id="inputLat" step="any" placeholder="Lat" class="inline-input">
           <input type="number" id="inputLng" step="any" placeholder="Lng" class="inline-input">
-          <button id="useLocationBtn" class="icon-btn" title="Use my location">📍</button>
         </div>
       </div>
       <div class="metrics-group">
@@ -673,27 +659,6 @@
     document.getElementById('inputLat').addEventListener('input', debouncedSettingsChange);
     document.getElementById('inputLng').addEventListener('input', debouncedSettingsChange);
     document.getElementById('inputRadius').addEventListener('input', debouncedSettingsChange);
-
-    document.getElementById('useLocationBtn').addEventListener('click', () => {
-      const btn = document.getElementById('useLocationBtn');
-      btn.disabled = true;
-      btn.textContent = '...';
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          document.getElementById('inputLat').value = position.coords.latitude.toFixed(6);
-          document.getElementById('inputLng').value = position.coords.longitude.toFixed(6);
-          btn.disabled = false;
-          btn.textContent = '📍';
-          onSettingsChange();
-        },
-        (error) => {
-          alert('Could not get your location: ' + error.message);
-          btn.disabled = false;
-          btn.textContent = '📍';
-        }
-      );
-    });
 
     document.getElementById('autoRefresh').addEventListener('change', (e) => {
       if (e.target.checked) {
