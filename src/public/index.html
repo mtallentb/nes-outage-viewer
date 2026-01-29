@@ -466,6 +466,7 @@
     let outageMarkers = [];
     let refreshInterval;
     let currentConfig = null;
+    let serverDefaults = null;
 
     // Load settings from localStorage
     function loadSettings() {
@@ -486,12 +487,12 @@
       const overlay = document.getElementById('settingsOverlay');
       overlay.classList.remove('hidden');
 
-      // Populate form with current values
-      const settings = loadSettings();
+      // Populate form with current values or server defaults
+      const settings = loadSettings() || serverDefaults;
       if (settings) {
-        document.getElementById('inputLat').value = settings.homeLat;
-        document.getElementById('inputLng').value = settings.homeLng;
-        document.getElementById('inputRadius').value = settings.radiusMiles;
+        document.getElementById('inputLat').value = settings.homeLat || '';
+        document.getElementById('inputLng').value = settings.homeLng || '';
+        document.getElementById('inputRadius').value = settings.radiusMiles || 1;
       }
     }
 
@@ -765,24 +766,19 @@
 
     // Initial load
     async function init() {
-      // Check for server defaults if no local settings
-      const settings = loadSettings();
-      if (!settings) {
-        try {
-          const response = await fetch('/api/config');
-          const serverConfig = await response.json();
-
-          if (serverConfig.homeLat && serverConfig.homeLng) {
-            // Use server defaults
-            saveSettings({
-              homeLat: serverConfig.homeLat,
-              homeLng: serverConfig.homeLng,
-              radiusMiles: serverConfig.radiusMiles || 1
-            });
-          }
-        } catch (e) {
-          // Server config not available, will show settings modal
+      // Fetch server defaults for form pre-population
+      try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        if (config.homeLat && config.homeLng) {
+          serverDefaults = {
+            homeLat: config.homeLat,
+            homeLng: config.homeLng,
+            radiusMiles: config.radiusMiles || 1
+          };
         }
+      } catch (e) {
+        // Server config not available
       }
 
       fetchAndUpdateOutages();
