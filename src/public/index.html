@@ -117,23 +117,43 @@
       transform: translateX(20px);
     }
 
-    .status-bar {
+    .metrics-row {
       display: flex;
-      gap: 16px;
+      gap: 24px;
       font-size: 0.875rem;
       color: #aaa;
+      flex-wrap: wrap;
     }
 
-    .status-item {
+    .metrics-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metrics-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #666;
+    }
+
+    .metrics-values {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+    }
+
+    .metrics-values strong {
+      color: #fff;
+      font-weight: 600;
     }
 
     .status-dot {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
+      display: inline-block;
     }
 
     .status-dot.assigned {
@@ -390,19 +410,38 @@
         </div>
       </div>
     </div>
-    <div class="status-bar">
-      <div class="status-item">
-        <span class="status-dot assigned"></span>
-        <span id="assignedCount">0</span> Assigned
+    <div class="metrics-row">
+      <div class="metrics-group">
+        <div class="metrics-label">Nashville</div>
+        <div class="metrics-values">
+          <span><strong id="nashvilleEvents">0</strong> outages</span>
+          <span class="divider">|</span>
+          <span><strong id="nashvillePeople">0</strong> people</span>
+        </div>
       </div>
-      <span class="divider">|</span>
-      <div class="status-item">
-        <span class="status-dot unassigned"></span>
-        <span id="unassignedCount">0</span> Unassigned
+      <div class="metrics-group">
+        <div class="metrics-label">Nearby</div>
+        <div class="metrics-values">
+          <span><strong id="nearbyEvents">0</strong> outages</span>
+          <span class="divider">|</span>
+          <span><strong id="nearbyPeople">0</strong> people</span>
+        </div>
       </div>
-      <span class="divider">|</span>
-      <div class="status-item">
-        Updated <span id="lastUpdated">--:--</span>
+      <div class="metrics-group">
+        <div class="metrics-label">Status</div>
+        <div class="metrics-values">
+          <span class="status-dot assigned"></span>
+          <span><strong id="assignedCount">0</strong> assigned</span>
+          <span class="divider">|</span>
+          <span class="status-dot unassigned"></span>
+          <span><strong id="unassignedCount">0</strong> unassigned</span>
+        </div>
+      </div>
+      <div class="metrics-group">
+        <div class="metrics-label">Updated</div>
+        <div class="metrics-values">
+          <span id="lastUpdated">--:--</span>
+        </div>
       </div>
     </div>
   </header>
@@ -633,10 +672,19 @@
       outageMarkers = [];
     }
 
-    function updateStatusBar(outages) {
+    function updateStatusBar(outages, totals) {
       const assigned = outages.filter(o => o.status === 'Assigned').length;
       const unassigned = outages.filter(o => o.status !== 'Assigned').length;
 
+      // Nashville totals
+      document.getElementById('nashvilleEvents').textContent = totals.nashville.events.toLocaleString();
+      document.getElementById('nashvillePeople').textContent = totals.nashville.peopleAffected.toLocaleString();
+
+      // Nearby totals
+      document.getElementById('nearbyEvents').textContent = totals.nearby.events.toLocaleString();
+      document.getElementById('nearbyPeople').textContent = totals.nearby.peopleAffected.toLocaleString();
+
+      // Status counts
       document.getElementById('assignedCount').textContent = assigned;
       document.getElementById('unassignedCount').textContent = unassigned;
       document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
@@ -684,7 +732,7 @@
           outageMarkers.push(marker);
         });
 
-        updateStatusBar(data.outages);
+        updateStatusBar(data.outages, data.totals);
         document.getElementById('loading').style.display = 'none';
       } catch (error) {
         console.error('Failed to fetch outages:', error);

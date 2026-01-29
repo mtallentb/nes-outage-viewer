@@ -44,11 +44,29 @@ app.get('/api/outages', async (req, res) => {
       pollIntervalMinutes: 5,
     };
 
-    const outages = await fetchOutages();
-    const nearby = filterNearbyOutages(outages, config);
+    const allOutages = await fetchOutages();
+    const nearby = filterNearbyOutages(allOutages, config);
+
+    // Calculate totals for all of Nashville
+    const totalEvents = allOutages.length;
+    const totalPeopleAffected = allOutages.reduce((sum, o) => sum + o.numPeople, 0);
+
+    // Calculate totals within radius
+    const nearbyEvents = nearby.length;
+    const nearbyPeopleAffected = nearby.reduce((sum, o) => sum + o.numPeople, 0);
 
     res.json({
       outages: nearby,
+      totals: {
+        nashville: {
+          events: totalEvents,
+          peopleAffected: totalPeopleAffected,
+        },
+        nearby: {
+          events: nearbyEvents,
+          peopleAffected: nearbyPeopleAffected,
+        },
+      },
       config: {
         homeLat,
         homeLng,
