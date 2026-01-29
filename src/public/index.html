@@ -379,11 +379,15 @@
     let currentConfig = null;
     let serverDefaults = null;
 
-    // Load settings from localStorage
+    // Load settings from localStorage (returns null if invalid)
     function loadSettings() {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const settings = JSON.parse(stored);
+        // Validate that we have actual coordinates
+        if (settings.homeLat && settings.homeLng) {
+          return settings;
+        }
       }
       return null;
     }
