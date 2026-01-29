@@ -766,7 +766,7 @@
 
     // Initial load
     async function init() {
-      // Fetch server defaults for form pre-population
+      // Fetch server defaults and auto-apply if no local settings
       try {
         const response = await fetch('/api/config');
         const config = await response.json();
@@ -776,6 +776,10 @@
             homeLng: config.homeLng,
             radiusMiles: config.radiusMiles || 1
           };
+          // Auto-save server defaults if no local settings
+          if (!loadSettings()) {
+            saveSettings(serverDefaults);
+          }
         }
       } catch (e) {
         // Server config not available
