@@ -677,12 +677,16 @@
       const unassigned = outages.filter(o => o.status !== 'Assigned').length;
 
       // Nashville totals
-      document.getElementById('nashvilleEvents').textContent = totals.nashville.events.toLocaleString();
-      document.getElementById('nashvillePeople').textContent = totals.nashville.peopleAffected.toLocaleString();
+      if (totals?.nashville) {
+        document.getElementById('nashvilleEvents').textContent = totals.nashville.events.toLocaleString();
+        document.getElementById('nashvillePeople').textContent = totals.nashville.peopleAffected.toLocaleString();
+      }
 
       // Nearby totals
-      document.getElementById('nearbyEvents').textContent = totals.nearby.events.toLocaleString();
-      document.getElementById('nearbyPeople').textContent = totals.nearby.peopleAffected.toLocaleString();
+      if (totals?.nearby) {
+        document.getElementById('nearbyEvents').textContent = totals.nearby.events.toLocaleString();
+        document.getElementById('nearbyPeople').textContent = totals.nearby.peopleAffected.toLocaleString();
+      }
 
       // Status counts
       document.getElementById('assignedCount').textContent = assigned;
