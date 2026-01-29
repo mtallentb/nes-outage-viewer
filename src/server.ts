@@ -2,45 +2,57 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fetchOutages, filterNearbyOutages } from './api';
-import { Config } from './types';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-function loadConfig(): Config {
-  const homeLat = parseFloat(process.env.HOME_LAT || '');
-  const homeLng = parseFloat(process.env.HOME_LNG || '');
-
-  if (isNaN(homeLat) || isNaN(homeLng)) {
-    console.error('Error: HOME_LAT and HOME_LNG must be set in .env file');
-    process.exit(1);
-  }
-
-  return {
-    homeLat,
-    homeLng,
-    radiusMiles: parseFloat(process.env.RADIUS_MILES || '1'),
-    pollIntervalMinutes: parseFloat(process.env.POLL_INTERVAL || '5'),
-  };
-}
-
-const config = loadConfig();
+// Default config from environment (optional)
+const defaultConfig = {
+  homeLat: parseFloat(process.env.HOME_LAT || '') || null,
+  homeLng: parseFloat(process.env.HOME_LNG || '') || null,
+  radiusMiles: parseFloat(process.env.RADIUS_MILES || '1'),
+};
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// API endpoint for default config
+app.get('/api/config', (_req, res) => {
+  res.json({
+    homeLat: defaultConfig.homeLat,
+    homeLng: defaultConfig.homeLng,
+    radiusMiles: defaultConfig.radiusMiles,
+  });
+});
+
 // API endpoint for outages
-app.get('/api/outages', async (_req, res) => {
+app.get('/api/outages', async (req, res) => {
   try {
+    const homeLat = parseFloat(req.query.lat as string);
+    const homeLng = parseFloat(req.query.lng as string);
+    const radiusMiles = parseFloat(req.query.radius as string) || 1;
+
+    if (isNaN(homeLat) || isNaN(homeLng)) {
+      res.status(400).json({ error: 'lat and lng query parameters are required' });
+      return;
+    }
+
+    const config = {
+      homeLat,
+      homeLng,
+      radiusMiles,
+      pollIntervalMinutes: 5,
+    };
+
     const outages = await fetchOutages();
     const nearby = filterNearbyOutages(outages, config);
 
     res.json({
       outages: nearby,
       config: {
-        homeLat: config.homeLat,
-        homeLng: config.homeLng,
-        radiusMiles: config.radiusMiles,
+        homeLat,
+        homeLng,
+        radiusMiles,
       },
     });
   } catch (error) {
@@ -51,5 +63,4 @@ app.get('/api/outages', async (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`NES Outage Dashboard running at http://localhost:${PORT}`);
-  console.log(`Monitoring ${config.radiusMiles} mile radius around (${config.homeLat}, ${config.homeLng})`);
 });

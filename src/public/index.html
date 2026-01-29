@@ -41,6 +41,27 @@
       color: #fff;
     }
 
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .settings-btn {
+      background: #0f3460;
+      border: 1px solid #1e4976;
+      color: #eee;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.2s;
+    }
+
+    .settings-btn:hover {
+      background: #1e4976;
+    }
+
     .auto-refresh {
       display: flex;
       align-items: center;
@@ -217,6 +238,116 @@
       color: #f87171;
     }
 
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .modal {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .modal h2 {
+      font-size: 1.25rem;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .modal p {
+      font-size: 0.875rem;
+      color: #888;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.875rem;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #0f3460;
+      border: 1px solid #1e4976;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: #3b82f6;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: #2563eb;
+    }
+
+    .btn:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #0f3460;
+      margin-top: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: #1e4976;
+    }
+
+    .location-hint {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 4px;
+    }
+
     .loading {
       position: absolute;
       top: 50%;
@@ -248,11 +379,14 @@
   <header>
     <div class="header-top">
       <h1>NES Outage Dashboard</h1>
-      <div class="auto-refresh">
-        <label for="autoRefresh">Auto-refresh</label>
-        <div class="toggle">
-          <input type="checkbox" id="autoRefresh" checked>
-          <span class="toggle-slider"></span>
+      <div class="header-controls">
+        <button class="settings-btn" id="settingsBtn">Settings</button>
+        <div class="auto-refresh">
+          <label for="autoRefresh">Auto-refresh</label>
+          <div class="toggle">
+            <input type="checkbox" id="autoRefresh" checked>
+            <span class="toggle-slider"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -295,24 +429,97 @@
     <div>Loading outages...</div>
   </div>
 
+  <!-- Settings Modal -->
+  <div class="overlay hidden" id="settingsOverlay">
+    <div class="modal">
+      <h2>Location Settings</h2>
+      <p>Enter your home coordinates and search radius.</p>
+      <form id="settingsForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="inputLat">Latitude</label>
+            <input type="number" id="inputLat" step="any" placeholder="36.1627" required>
+          </div>
+          <div class="form-group">
+            <label for="inputLng">Longitude</label>
+            <input type="number" id="inputLng" step="any" placeholder="-86.7816" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="inputRadius">Radius (miles)</label>
+          <input type="number" id="inputRadius" step="0.1" min="0.1" max="50" placeholder="1" required>
+        </div>
+        <button type="submit" class="btn" id="saveBtn">Save & Apply</button>
+        <button type="button" class="btn btn-secondary" id="useLocationBtn">Use My Location</button>
+        <p class="location-hint">Your location is stored locally in your browser.</p>
+      </form>
+    </div>
+  </div>
+
   <script>
+    const STORAGE_KEY = 'nes-outage-settings';
+    const REFRESH_INTERVAL_MS = 30000;
+
     let map;
     let homeMarker;
     let radiusCircle;
     let outageMarkers = [];
     let refreshInterval;
-    const REFRESH_INTERVAL_MS = 30000;
+    let currentConfig = null;
 
+    // Load settings from localStorage
+    function loadSettings() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+      return null;
+    }
+
+    // Save settings to localStorage
+    function saveSettings(settings) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    }
+
+    // Show/hide settings modal
+    function showSettings() {
+      const overlay = document.getElementById('settingsOverlay');
+      overlay.classList.remove('hidden');
+
+      // Populate form with current values
+      const settings = loadSettings();
+      if (settings) {
+        document.getElementById('inputLat').value = settings.homeLat;
+        document.getElementById('inputLng').value = settings.homeLng;
+        document.getElementById('inputRadius').value = settings.radiusMiles;
+      }
+    }
+
+    function hideSettings() {
+      document.getElementById('settingsOverlay').classList.add('hidden');
+    }
+
+    // Initialize map
     function initMap(homeLat, homeLng) {
+      if (map) {
+        map.remove();
+      }
       map = L.map('map').setView([homeLat, homeLng], 14);
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 19
       }).addTo(map);
+
+      homeMarker = null;
+      radiusCircle = null;
     }
 
     function createHomeMarker(lat, lng) {
+      if (homeMarker) {
+        map.removeLayer(homeMarker);
+      }
+
       const homeIcon = L.divIcon({
         className: 'home-marker',
         html: `<div style="
@@ -333,6 +540,10 @@
     }
 
     function createRadiusCircle(lat, lng, radiusMiles) {
+      if (radiusCircle) {
+        map.removeLayer(radiusCircle);
+      }
+
       const radiusMeters = radiusMiles * 1609.34;
       radiusCircle = L.circle([lat, lng], {
         radius: radiusMeters,
@@ -431,14 +642,38 @@
     }
 
     async function fetchAndUpdateOutages() {
+      const settings = loadSettings();
+      if (!settings) {
+        document.getElementById('loading').style.display = 'none';
+        showSettings();
+        return;
+      }
+
       try {
-        const response = await fetch('/api/outages');
+        const params = new URLSearchParams({
+          lat: settings.homeLat,
+          lng: settings.homeLng,
+          radius: settings.radiusMiles
+        });
+
+        const response = await fetch(`/api/outages?${params}`);
         const data = await response.json();
 
-        if (!map) {
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Initialize or update map if config changed
+        const configChanged = !currentConfig ||
+          currentConfig.homeLat !== data.config.homeLat ||
+          currentConfig.homeLng !== data.config.homeLng ||
+          currentConfig.radiusMiles !== data.config.radiusMiles;
+
+        if (configChanged) {
           initMap(data.config.homeLat, data.config.homeLng);
           createHomeMarker(data.config.homeLat, data.config.homeLng);
           createRadiusCircle(data.config.homeLat, data.config.homeLng, data.config.radiusMiles);
+          currentConfig = data.config;
         }
 
         clearOutageMarkers();
@@ -454,7 +689,7 @@
         console.error('Failed to fetch outages:', error);
         document.getElementById('loading').innerHTML = `
           <div style="color: #f87171;">Failed to load outages</div>
-          <div style="font-size: 0.8rem; margin-top: 8px; color: #888;">Check console for details</div>
+          <div style="font-size: 0.8rem; margin-top: 8px; color: #888;">${error.message}</div>
         `;
       }
     }
@@ -471,6 +706,55 @@
       }
     }
 
+    // Event listeners
+    document.getElementById('settingsBtn').addEventListener('click', showSettings);
+
+    document.getElementById('settingsOverlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        hideSettings();
+      }
+    });
+
+    document.getElementById('settingsForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const settings = {
+        homeLat: parseFloat(document.getElementById('inputLat').value),
+        homeLng: parseFloat(document.getElementById('inputLng').value),
+        radiusMiles: parseFloat(document.getElementById('inputRadius').value)
+      };
+
+      saveSettings(settings);
+      hideSettings();
+      currentConfig = null; // Force map reinitialize
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('loading').innerHTML = `
+        <div class="spinner"></div>
+        <div>Loading outages...</div>
+      `;
+      fetchAndUpdateOutages();
+    });
+
+    document.getElementById('useLocationBtn').addEventListener('click', () => {
+      const btn = document.getElementById('useLocationBtn');
+      btn.disabled = true;
+      btn.textContent = 'Getting location...';
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          document.getElementById('inputLat').value = position.coords.latitude.toFixed(6);
+          document.getElementById('inputLng').value = position.coords.longitude.toFixed(6);
+          btn.disabled = false;
+          btn.textContent = 'Use My Location';
+        },
+        (error) => {
+          alert('Could not get your location: ' + error.message);
+          btn.disabled = false;
+          btn.textContent = 'Use My Location';
+        }
+      );
+    });
+
     document.getElementById('autoRefresh').addEventListener('change', (e) => {
       if (e.target.checked) {
         startAutoRefresh();
@@ -480,8 +764,32 @@
     });
 
     // Initial load
-    fetchAndUpdateOutages();
-    startAutoRefresh();
+    async function init() {
+      // Check for server defaults if no local settings
+      const settings = loadSettings();
+      if (!settings) {
+        try {
+          const response = await fetch('/api/config');
+          const serverConfig = await response.json();
+
+          if (serverConfig.homeLat && serverConfig.homeLng) {
+            // Use server defaults
+            saveSettings({
+              homeLat: serverConfig.homeLat,
+              homeLng: serverConfig.homeLng,
+              radiusMiles: serverConfig.radiusMiles || 1
+            });
+          }
+        } catch (e) {
+          // Server config not available, will show settings modal
+        }
+      }
+
+      fetchAndUpdateOutages();
+      startAutoRefresh();
+    }
+
+    init();
   </script>
 </body>
 </html>
