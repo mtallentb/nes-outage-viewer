@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NES Outage Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #16213e;
+      padding: 16px 24px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .auto-refresh {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+    }
+
+    .auto-refresh label {
+      cursor: pointer;
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #444;
+      border-radius: 24px;
+      transition: 0.3s;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    .toggle input:checked + .toggle-slider {
+      background-color: #4ade80;
+    }
+
+    .toggle input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 16px;
+      font-size: 0.875rem;
+      color: #aaa;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .status-dot.assigned {
+      background: #4ade80;
+    }
+
+    .status-dot.unassigned {
+      background: #f87171;
+    }
+
+    .divider {
+      color: #444;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      background: rgba(22, 33, 62, 0.95);
+      padding: 12px 16px;
+      border-radius: 8px;
+      z-index: 1000;
+      font-size: 0.8rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .legend-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .legend-marker {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+    }
+
+    .legend-marker.home {
+      background: #3b82f6;
+      border: 2px solid #fff;
+    }
+
+    .legend-marker.assigned {
+      background: #4ade80;
+    }
+
+    .legend-marker.unassigned {
+      background: #f87171;
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: #16213e;
+      color: #eee;
+      border-radius: 8px;
+    }
+
+    .leaflet-popup-tip {
+      background: #16213e;
+    }
+
+    .leaflet-popup-content {
+      margin: 12px 16px;
+    }
+
+    .popup-title {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .popup-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 0.85rem;
+    }
+
+    .popup-label {
+      color: #888;
+    }
+
+    .popup-value {
+      color: #eee;
+    }
+
+    .popup-value.assigned {
+      color: #4ade80;
+    }
+
+    .popup-value.unassigned {
+      color: #f87171;
+    }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+      background: rgba(22, 33, 62, 0.95);
+      padding: 24px 32px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #444;
+      border-top-color: #4ade80;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <h1>NES Outage Dashboard</h1>
+      <div class="auto-refresh">
+        <label for="autoRefresh">Auto-refresh</label>
+        <div class="toggle">
+          <input type="checkbox" id="autoRefresh" checked>
+          <span class="toggle-slider"></span>
+        </div>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="status-dot assigned"></span>
+        <span id="assignedCount">0</span> Assigned
+      </div>
+      <span class="divider">|</span>
+      <div class="status-item">
+        <span class="status-dot unassigned"></span>
+        <span id="unassignedCount">0</span> Unassigned
+      </div>
+      <span class="divider">|</span>
+      <div class="status-item">
+        Updated <span id="lastUpdated">--:--</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="map"></div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-marker home"></div>
+      <span>Home</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-marker assigned"></div>
+      <span>Assigned</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-marker unassigned"></div>
+      <span>Unassigned</span>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>Loading outages...</div>
+  </div>
+
+  <script>
+    let map;
+    let homeMarker;
+    let radiusCircle;
+    let outageMarkers = [];
+    let refreshInterval;
+    const REFRESH_INTERVAL_MS = 30000;
+
+    function initMap(homeLat, homeLng) {
+      map = L.map('map').setView([homeLat, homeLng], 14);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19
+      }).addTo(map);
+    }
+
+    function createHomeMarker(lat, lng) {
+      const homeIcon = L.divIcon({
+        className: 'home-marker',
+        html: `<div style="
+          width: 20px;
+          height: 20px;
+          background: #3b82f6;
+          border: 3px solid #fff;
+          border-radius: 50%;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        "></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+
+      homeMarker = L.marker([lat, lng], { icon: homeIcon })
+        .addTo(map)
+        .bindPopup('<div class="popup-title">Home</div>');
+    }
+
+    function createRadiusCircle(lat, lng, radiusMiles) {
+      const radiusMeters = radiusMiles * 1609.34;
+      radiusCircle = L.circle([lat, lng], {
+        radius: radiusMeters,
+        color: '#3b82f6',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.1,
+        weight: 2,
+        dashArray: '5, 5'
+      }).addTo(map);
+    }
+
+    function createOutageMarker(outage) {
+      const isAssigned = outage.status === 'Assigned';
+      const color = isAssigned ? '#4ade80' : '#f87171';
+
+      const icon = L.divIcon({
+        className: 'outage-marker',
+        html: `<div style="
+          width: 16px;
+          height: 16px;
+          background: ${color};
+          border: 2px solid #fff;
+          border-radius: 50%;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        "></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      const statusClass = isAssigned ? 'assigned' : 'unassigned';
+      const popupContent = `
+        <div class="popup-title">Outage #${outage.id}</div>
+        <div class="popup-row">
+          <span class="popup-label">Status</span>
+          <span class="popup-value ${statusClass}">${outage.status}</span>
+        </div>
+        <div class="popup-row">
+          <span class="popup-label">People Affected</span>
+          <span class="popup-value">${outage.numPeople.toLocaleString()}</span>
+        </div>
+        <div class="popup-row">
+          <span class="popup-label">Distance</span>
+          <span class="popup-value">${outage.distance.toFixed(2)} mi</span>
+        </div>
+        <div class="popup-row">
+          <span class="popup-label">Last Updated</span>
+          <span class="popup-value">${formatTimeAgo(outage.lastUpdated)}</span>
+        </div>
+        ${outage.cause ? `
+        <div class="popup-row">
+          <span class="popup-label">Cause</span>
+          <span class="popup-value">${outage.cause}</span>
+        </div>
+        ` : ''}
+        ${outage.estimatedRestoration ? `
+        <div class="popup-row">
+          <span class="popup-label">Est. Restoration</span>
+          <span class="popup-value">${new Date(outage.estimatedRestoration).toLocaleTimeString()}</span>
+        </div>
+        ` : ''}
+      `;
+
+      const marker = L.marker([outage.lat, outage.lng], { icon })
+        .addTo(map)
+        .bindPopup(popupContent);
+
+      return marker;
+    }
+
+    function formatTimeAgo(isoString) {
+      const now = new Date();
+      const updated = new Date(isoString);
+      const diffMs = now.getTime() - updated.getTime();
+      const diffMinutes = Math.floor(diffMs / 60000);
+
+      if (diffMinutes < 1) return 'just now';
+      if (diffMinutes < 60) return `${diffMinutes}m ago`;
+      const diffHours = Math.floor(diffMinutes / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays}d ago`;
+    }
+
+    function clearOutageMarkers() {
+      outageMarkers.forEach(marker => map.removeLayer(marker));
+      outageMarkers = [];
+    }
+
+    function updateStatusBar(outages) {
+      const assigned = outages.filter(o => o.status === 'Assigned').length;
+      const unassigned = outages.filter(o => o.status !== 'Assigned').length;
+
+      document.getElementById('assignedCount').textContent = assigned;
+      document.getElementById('unassignedCount').textContent = unassigned;
+      document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+    }
+
+    async function fetchAndUpdateOutages() {
+      try {
+        const response = await fetch('/api/outages');
+        const data = await response.json();
+
+        if (!map) {
+          initMap(data.config.homeLat, data.config.homeLng);
+          createHomeMarker(data.config.homeLat, data.config.homeLng);
+          createRadiusCircle(data.config.homeLat, data.config.homeLng, data.config.radiusMiles);
+        }
+
+        clearOutageMarkers();
+
+        data.outages.forEach(outage => {
+          const marker = createOutageMarker(outage);
+          outageMarkers.push(marker);
+        });
+
+        updateStatusBar(data.outages);
+        document.getElementById('loading').style.display = 'none';
+      } catch (error) {
+        console.error('Failed to fetch outages:', error);
+        document.getElementById('loading').innerHTML = `
+          <div style="color: #f87171;">Failed to load outages</div>
+          <div style="font-size: 0.8rem; margin-top: 8px; color: #888;">Check console for details</div>
+        `;
+      }
+    }
+
+    function startAutoRefresh() {
+      if (refreshInterval) clearInterval(refreshInterval);
+      refreshInterval = setInterval(fetchAndUpdateOutages, REFRESH_INTERVAL_MS);
+    }
+
+    function stopAutoRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    }
+
+    document.getElementById('autoRefresh').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        startAutoRefresh();
+      } else {
+        stopAutoRefresh();
+      }
+    });
+
+    // Initial load
+    fetchAndUpdateOutages();
+    startAutoRefresh();
+  </script>
+</body>
+</html>
