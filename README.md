@@ -24,7 +24,7 @@ npm install
 Create a `.env` file in the project root:
 
 ```env
-# Required - Your home coordinates
+# Your home coordinates (defaults to 12 South Edley's)
 HOME_LAT=36.122859
 HOME_LNG=-86.789864
 
@@ -36,25 +36,32 @@ PORT=3000             # Server port for dashboard (default: 3000)
 
 ## Usage
 
-### CLI
+### Web Dashboard (Local Development)
+
+```bash
+npm run dev
+```
+
+Then open http://localhost:3000 in your browser.
+
+### CLI (Local Development)
 
 One-time check:
 ```bash
-npm start
+npm run dev:cli
 ```
 
 Watch mode (continuous monitoring):
 ```bash
-npm run watch
+npm run dev:watch
 ```
 
-### Web Dashboard
+### Production Build
 
 ```bash
-npm run dashboard
+npm run build
+npm start
 ```
-
-Then open http://localhost:3000 in your browser.
 
 ## Tech Stack
 

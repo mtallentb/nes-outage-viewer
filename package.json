@@ -2,11 +2,16 @@
   "name": "nes-tracker",
   "version": "1.0.0",
   "description": "CLI tool to track NES power outage status near your home",
-  "main": "src/index.ts",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "watch": "ts-node src/index.ts --watch",
-    "dashboard": "ts-node src/server.ts"
+    "build": "tsc && cp -r src/public dist/",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "dev:cli": "ts-node src/index.ts",
+    "dev:watch": "ts-node src/index.ts --watch"
   },
   "keywords": ["nes", "outage", "power", "tracker"],
   "license": "MIT",
