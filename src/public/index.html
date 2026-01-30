@@ -6,6 +6,9 @@
   <title>NES Outage Dashboard</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <style>
     * {
       margin: 0;
@@ -338,6 +341,130 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Marker cluster styles for dark theme */
+    .marker-cluster {
+      background-clip: padding-box;
+      border-radius: 50%;
+    }
+
+    .marker-cluster div {
+      width: 36px;
+      height: 36px;
+      margin-left: 4px;
+      margin-top: 4px;
+      text-align: center;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.1;
+    }
+
+    .marker-cluster span {
+      display: block;
+    }
+
+    .marker-cluster .cluster-people {
+      font-size: 9px;
+      font-weight: 400;
+      opacity: 0.9;
+    }
+
+    /* Severity colors: green (few) -> amber (moderate) -> red (many) */
+    .marker-cluster-small {
+      background: rgba(74, 222, 128, 0.5);
+    }
+    .marker-cluster-small div {
+      background: rgba(74, 222, 128, 0.9);
+    }
+
+    .marker-cluster-medium {
+      background: rgba(251, 191, 36, 0.5);
+    }
+    .marker-cluster-medium div {
+      background: rgba(251, 191, 36, 0.9);
+    }
+
+    .marker-cluster-large {
+      background: rgba(248, 113, 113, 0.5);
+    }
+    .marker-cluster-large div {
+      background: rgba(248, 113, 113, 0.9);
+    }
+
+    /* Border indicates unassigned ratio */
+    .marker-cluster-mostly-assigned {
+      box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.7);
+    }
+    .marker-cluster-mixed {
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.7);
+    }
+    .marker-cluster-mostly-unassigned {
+      box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.7);
+    }
+
+    /* Legend size indicators */
+    .legend-marker-small {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #888;
+      border: 2px solid #fff;
+    }
+
+    .legend-marker-medium {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #888;
+      border: 2px solid #fff;
+    }
+
+    .legend-marker-large {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #888;
+      border: 2px solid #fff;
+    }
+
+    .legend-cluster {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(251, 191, 36, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.5);
+    }
+
+    .legend-section {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #333;
+    }
+
+    .legend-section-title {
+      font-size: 0.7rem;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .legend-size-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     /* Mobile styles */
     @media (max-width: 768px) {
       header {
@@ -472,6 +599,22 @@
       <div class="legend-marker unassigned"></div>
       <span>Unassigned</span>
     </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Marker Size</div>
+      <div class="legend-item legend-size-row">
+        <div class="legend-marker-small"></div>
+        <div class="legend-marker-medium"></div>
+        <div class="legend-marker-large"></div>
+        <span>= people affected</span>
+      </div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Clusters</div>
+      <div class="legend-item">
+        <div class="legend-cluster">5</div>
+        <span>Grouped outages</span>
+      </div>
+    </div>
   </div>
 
   <div class="loading" id="loading">
@@ -486,7 +629,7 @@
     let map;
     let homeMarker;
     let radiusCircle;
-    let outageMarkers = [];
+    let markerClusterGroup;
     let refreshInterval;
     let currentConfig = null;
     let serverDefaults = null;
@@ -628,6 +771,66 @@
 
       homeMarker = null;
       radiusCircle = null;
+      markerClusterGroup = null;
+    }
+
+    // Format number with abbreviation (e.g., 1200 -> "1.2k")
+    function formatPeopleAbbrev(num) {
+      if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'k';
+      }
+      return num.toString();
+    }
+
+    // Create marker cluster group with custom styling
+    function createClusterGroup() {
+      return L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: function(cluster) {
+          const childMarkers = cluster.getAllChildMarkers();
+          const count = childMarkers.length;
+
+          // Calculate totals from child markers
+          let totalPeople = 0;
+          let assignedCount = 0;
+          childMarkers.forEach(marker => {
+            totalPeople += marker.options.numPeople || 0;
+            if (marker.options.isAssigned) assignedCount++;
+          });
+
+          // Determine severity class based on total people affected
+          let sizeClass;
+          if (totalPeople < 500) {
+            sizeClass = 'marker-cluster-small';
+          } else if (totalPeople < 2000) {
+            sizeClass = 'marker-cluster-medium';
+          } else {
+            sizeClass = 'marker-cluster-large';
+          }
+
+          // Determine assignment ratio class
+          const assignedRatio = assignedCount / count;
+          let assignmentClass;
+          if (assignedRatio > 0.7) {
+            assignmentClass = 'marker-cluster-mostly-assigned';
+          } else if (assignedRatio > 0.3) {
+            assignmentClass = 'marker-cluster-mixed';
+          } else {
+            assignmentClass = 'marker-cluster-mostly-unassigned';
+          }
+
+          const peopleAbbrev = formatPeopleAbbrev(totalPeople);
+
+          return L.divIcon({
+            html: `<div><span>${count}</span><span class="cluster-people">${peopleAbbrev}</span></div>`,
+            className: `marker-cluster ${sizeClass} ${assignmentClass}`,
+            iconSize: L.point(44, 44)
+          });
+        }
+      });
     }
 
     function createHomeMarker(lat, lng) {
@@ -674,18 +877,28 @@
       const isAssigned = outage.status === 'Assigned';
       const color = isAssigned ? '#4ade80' : '#f87171';
 
+      // Size based on people affected using log scale (12px - 28px)
+      const minSize = 12;
+      const maxSize = 28;
+      const numPeople = outage.numPeople || 1;
+      // Log scale: 1 person = 12px, 10000+ = 28px
+      const logScale = Math.log10(Math.max(1, numPeople));
+      const maxLog = Math.log10(10000);
+      const size = Math.min(maxSize, Math.max(minSize, minSize + (logScale / maxLog) * (maxSize - minSize)));
+      const sizeRounded = Math.round(size);
+
       const icon = L.divIcon({
         className: 'outage-marker',
         html: `<div style="
-          width: 16px;
-          height: 16px;
+          width: ${sizeRounded}px;
+          height: ${sizeRounded}px;
           background: ${color};
           border: 2px solid #fff;
           border-radius: 50%;
           box-shadow: 0 2px 6px rgba(0,0,0,0.3);
         "></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
+        iconSize: [sizeRounded, sizeRounded],
+        iconAnchor: [sizeRounded / 2, sizeRounded / 2]
       });
 
       const statusClass = isAssigned ? 'assigned' : 'unassigned';
@@ -721,9 +934,12 @@
         ` : ''}
       `;
 
-      const marker = L.marker([outage.lat, outage.lng], { icon })
-        .addTo(map)
-        .bindPopup(popupContent);
+      // Store numPeople and isAssigned on marker options for cluster calculations
+      const marker = L.marker([outage.lat, outage.lng], {
+        icon,
+        numPeople: outage.numPeople,
+        isAssigned: isAssigned
+      }).bindPopup(popupContent);
 
       return marker;
     }
@@ -743,8 +959,9 @@
     }
 
     function clearOutageMarkers() {
-      outageMarkers.forEach(marker => map.removeLayer(marker));
-      outageMarkers = [];
+      if (markerClusterGroup) {
+        markerClusterGroup.clearLayers();
+      }
     }
 
     function updateStatusBar(outages, totals) {
@@ -825,6 +1042,9 @@
           initMap(data.config.homeLat, data.config.homeLng);
           createHomeMarker(data.config.homeLat, data.config.homeLng);
           createRadiusCircle(data.config.homeLat, data.config.homeLng, data.config.radiusMiles);
+          // Create marker cluster group
+          markerClusterGroup = createClusterGroup();
+          map.addLayer(markerClusterGroup);
           currentConfig = data.config;
         }
 
@@ -832,7 +1052,7 @@
 
         data.outages.forEach(outage => {
           const marker = createOutageMarker(outage);
-          outageMarkers.push(marker);
+          markerClusterGroup.addLayer(marker);
         });
 
         updateStatusBar(data.outages, data.totals);
