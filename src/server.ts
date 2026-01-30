@@ -8,10 +8,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-// Default config from environment (optional)
+// Default config - 12 South Edley's
+const EDLEYS_12_SOUTH = { lat: 36.122859, lng: -86.789864 };
+
 const defaultConfig = {
-  homeLat: parseFloat(process.env.HOME_LAT || '') || null,
-  homeLng: parseFloat(process.env.HOME_LNG || '') || null,
+  homeLat: parseFloat(process.env.HOME_LAT || '') || EDLEYS_12_SOUTH.lat,
+  homeLng: parseFloat(process.env.HOME_LNG || '') || EDLEYS_12_SOUTH.lng,
   radiusMiles: parseFloat(process.env.RADIUS_MILES || '1'),
 };
 
