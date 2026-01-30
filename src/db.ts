@@ -1,12 +1,19 @@
 import { Pool } from 'pg';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
-});
+let pool: Pool | null = null;
+
+function getPool(): Pool {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+  }
+  return pool;
+}
 
 export async function initDb() {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS outage_snapshots (
@@ -31,7 +38,7 @@ export async function initDb() {
 export async function saveSnapshot(outages: Array<{ id: string; status: string; numPeople: number; lat: number; lng: number }>) {
   if (outages.length === 0) return;
 
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const now = new Date();
     const values: any[] = [];
@@ -64,7 +71,7 @@ export interface TrendData {
 }
 
 export async function getTrends(hoursBack: number = 6): Promise<TrendData | null> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
 
@@ -140,4 +147,4 @@ export async function getTrends(hoursBack: number = 6): Promise<TrendData | null
   }
 }
 
-export default pool;
+export default getPool;
