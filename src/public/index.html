@@ -437,6 +437,18 @@
         </div>
       </div>
       <div class="metrics-group">
+        <div class="metrics-label">Resolving</div>
+        <div class="metrics-values">
+          <span><strong id="resolutionRate">--</strong>/hr</span>
+        </div>
+      </div>
+      <div class="metrics-group">
+        <div class="metrics-label">People (6hr)</div>
+        <div class="metrics-values">
+          <span id="netPeopleChange">--</span>
+        </div>
+      </div>
+      <div class="metrics-group">
         <div class="metrics-label">Updated</div>
         <div class="metrics-values">
           <span id="lastUpdated">--:--</span>
@@ -757,6 +769,31 @@
       document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
     }
 
+    async function fetchTrends() {
+      try {
+        const response = await fetch('/api/trends?hours=6');
+        const data = await response.json();
+
+        if (data.resolutionRate !== undefined) {
+          document.getElementById('resolutionRate').textContent = data.resolutionRate.toFixed(1);
+        }
+
+        if (data.netPeopleChange !== undefined) {
+          const change = data.netPeopleChange;
+          const el = document.getElementById('netPeopleChange');
+          if (change > 0) {
+            el.innerHTML = `<span style="color: #f87171;">+${change.toLocaleString()}</span>`;
+          } else if (change < 0) {
+            el.innerHTML = `<span style="color: #4ade80;">${change.toLocaleString()}</span>`;
+          } else {
+            el.textContent = '0';
+          }
+        }
+      } catch (e) {
+        console.log('Trends not available');
+      }
+    }
+
     async function fetchAndUpdateOutages() {
       const settings = getInputSettings() || loadSettings();
       if (!settings) {
@@ -811,7 +848,10 @@
 
     function startAutoRefresh() {
       if (refreshInterval) clearInterval(refreshInterval);
-      refreshInterval = setInterval(fetchAndUpdateOutages, REFRESH_INTERVAL_MS);
+      refreshInterval = setInterval(() => {
+        fetchAndUpdateOutages();
+        fetchTrends();
+      }, REFRESH_INTERVAL_MS);
     }
 
     function stopAutoRefresh() {
@@ -864,6 +904,7 @@
       populateInputs();
 
       fetchAndUpdateOutages();
+      fetchTrends();
       startAutoRefresh();
     }
 

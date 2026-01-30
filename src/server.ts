@@ -2,9 +2,11 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fetchOutages, filterNearbyOutages } from './api';
+import { initDb, saveSnapshot, getTrends } from './db';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Default config from environment (optional)
 const defaultConfig = {
@@ -79,6 +81,65 @@ app.get('/api/outages', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`NES Outage Dashboard running at http://localhost:${PORT}`);
+// API endpoint for trends
+app.get('/api/trends', async (req, res) => {
+  try {
+    const hours = parseInt(req.query.hours as string) || 6;
+    const trends = await getTrends(hours);
+
+    if (!trends) {
+      res.json({
+        message: 'Not enough data yet. Trends require at least 2 snapshots.',
+        dataPoints: []
+      });
+      return;
+    }
+
+    res.json(trends);
+  } catch (error) {
+    console.error('Error fetching trends:', error);
+    res.status(500).json({ error: 'Failed to fetch trends' });
+  }
 });
+
+// Take a snapshot of current outages
+async function takeSnapshot() {
+  try {
+    const outages = await fetchOutages();
+    await saveSnapshot(outages.map(o => ({
+      id: o.id,
+      status: o.status,
+      numPeople: o.numPeople,
+      lat: o.lat,
+      lng: o.lng
+    })));
+    console.log(`Snapshot saved: ${outages.length} outages`);
+  } catch (error) {
+    console.error('Failed to save snapshot:', error);
+  }
+}
+
+// Start server
+async function start() {
+  // Initialize database if DATABASE_URL is set
+  if (process.env.DATABASE_URL) {
+    try {
+      await initDb();
+      // Take initial snapshot
+      await takeSnapshot();
+      // Schedule periodic snapshots
+      setInterval(takeSnapshot, SNAPSHOT_INTERVAL_MS);
+    } catch (error) {
+      console.error('Database initialization failed:', error);
+      console.log('Continuing without trend tracking...');
+    }
+  } else {
+    console.log('DATABASE_URL not set - trend tracking disabled');
+  }
+
+  app.listen(PORT, () => {
+    console.log(`NES Outage Dashboard running at http://localhost:${PORT}`);
+  });
+}
+
+start();

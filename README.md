@@ -9,9 +9,10 @@ A CLI tool and web dashboard for tracking Nashville Electric Service (NES) power
 - **Web Dashboard**: Interactive map interface with:
   - Leaflet map showing outage locations and your home
   - Address search with typeahead
-  - Customizable coordinates and search radius
+  - Customizable search radius
   - Auto-refresh every 30 seconds
   - Nashville-wide vs. nearby outage comparison
+  - Trend tracking: resolution rate and net change in people affected (requires Postgres)
 
 ## Installation
 
@@ -32,6 +33,7 @@ HOME_LNG=-86.789864
 RADIUS_MILES=1        # Search radius in miles (default: 1)
 POLL_INTERVAL=5       # Poll interval in minutes for watch mode (default: 5)
 PORT=3000             # Server port for dashboard (default: 3000)
+DATABASE_URL=         # Postgres connection string (enables trend tracking)
 ```
 
 ## Usage
@@ -67,6 +69,7 @@ npm start
 
 - TypeScript
 - Node.js / Express
+- PostgreSQL (optional, for trend tracking)
 - Leaflet.js (mapping)
 - NES Outage API
 - Nominatim (address geocoding)
@@ -78,6 +81,7 @@ src/
 ├── index.ts        # CLI entry point
 ├── server.ts       # Express server for dashboard
 ├── api.ts          # NES API integration
+├── db.ts           # Postgres connection and trend queries
 ├── geo.ts          # Haversine distance calculation
 ├── types.ts        # TypeScript interfaces
 └── public/
