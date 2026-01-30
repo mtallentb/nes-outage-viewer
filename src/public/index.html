@@ -161,10 +161,6 @@
       width: 50px;
     }
 
-    .inline-input.coord {
-      width: 75px;
-    }
-
     .inline-input:focus {
       outline: none;
       border-color: #3b82f6;
@@ -341,6 +337,51 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    /* Mobile styles */
+    @media (max-width: 768px) {
+      header {
+        padding: 12px 16px;
+      }
+
+      h1 {
+        font-size: 1.2rem;
+      }
+
+      .auto-refresh label {
+        display: none;
+      }
+
+      .metrics-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 16px;
+      }
+
+      .metrics-group {
+        min-width: 0;
+      }
+
+      .address-input {
+        width: 100%;
+      }
+
+      .metrics-values {
+        gap: 4px;
+        font-size: 0.8rem;
+      }
+
+      .divider {
+        display: none;
+      }
+
+      .legend {
+        bottom: 16px;
+        left: 16px;
+        padding: 8px 12px;
+        font-size: 0.75rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -361,13 +402,6 @@
         <div class="address-wrapper">
           <input type="text" id="inputAddress" placeholder="Default: 12 South Edley's" class="inline-input address-input" autocomplete="off">
           <div id="addressDropdown" class="address-dropdown hidden"></div>
-        </div>
-      </div>
-      <div class="metrics-group">
-        <div class="metrics-label">Coords</div>
-        <div class="metrics-values">
-          <input type="number" id="inputLat" step="any" placeholder="Lat" class="inline-input coord">
-          <input type="number" id="inputLng" step="any" placeholder="Lng" class="inline-input coord">
         </div>
       </div>
       <div class="metrics-group">
@@ -516,15 +550,22 @@
     addressDropdown.addEventListener('click', (e) => {
       const option = e.target.closest('.address-option');
       if (option) {
-        const lat = option.dataset.lat;
-        const lng = option.dataset.lng;
-        document.getElementById('inputLat').value = parseFloat(lat).toFixed(6);
-        document.getElementById('inputLng').value = parseFloat(lng).toFixed(6);
+        const lat = parseFloat(option.dataset.lat);
+        const lng = parseFloat(option.dataset.lng);
         addressInput.value = option.querySelector('.address-option-main').textContent.trim();
         addressDropdown.classList.add('hidden');
-        onSettingsChange();
+        onLocationChange(lat, lng);
       }
     });
+
+    // Handle location changes from address selection
+    function onLocationChange(lat, lng) {
+      const radius = parseFloat(document.getElementById('inputRadius').value) || 1;
+      const settings = { homeLat: lat, homeLng: lng, radiusMiles: radius };
+      saveSettings(settings);
+      currentConfig = null;
+      fetchAndUpdateOutages();
+    }
 
     // Hide dropdown when clicking outside
     document.addEventListener('click', (e) => {
@@ -537,27 +578,22 @@
     function populateInputs() {
       const settings = loadSettings() || serverDefaults;
       if (settings) {
-        document.getElementById('inputLat').value = settings.homeLat || '';
-        document.getElementById('inputLng').value = settings.homeLng || '';
         document.getElementById('inputRadius').value = settings.radiusMiles || 1;
       }
     }
 
-    // Get settings from inline inputs
+    // Get settings from stored values and radius input
     function getInputSettings() {
-      const lat = parseFloat(document.getElementById('inputLat').value);
-      const lng = parseFloat(document.getElementById('inputLng').value);
-      const radius = parseFloat(document.getElementById('inputRadius').value) || 1;
-
-      if (isNaN(lat) || isNaN(lng)) {
+      const stored = loadSettings() || serverDefaults;
+      if (!stored || !stored.homeLat || !stored.homeLng) {
         return null;
       }
-
-      return { homeLat: lat, homeLng: lng, radiusMiles: radius };
+      const radius = parseFloat(document.getElementById('inputRadius').value) || 1;
+      return { homeLat: stored.homeLat, homeLng: stored.homeLng, radiusMiles: radius };
     }
 
-    // Handle input changes
-    function onSettingsChange() {
+    // Handle radius input changes
+    function onRadiusChange() {
       const settings = getInputSettings();
       if (settings) {
         saveSettings(settings);
@@ -787,18 +823,13 @@
 
     // Event listeners - debounce input changes
     let debounceTimer;
-    function debouncedSettingsChange() {
+    function debouncedRadiusChange() {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(onSettingsChange, 500);
+      debounceTimer = setTimeout(onRadiusChange, 500);
     }
 
-    document.getElementById('inputLat').addEventListener('change', onSettingsChange);
-    document.getElementById('inputLng').addEventListener('change', onSettingsChange);
-    document.getElementById('inputRadius').addEventListener('change', onSettingsChange);
-
-    document.getElementById('inputLat').addEventListener('input', debouncedSettingsChange);
-    document.getElementById('inputLng').addEventListener('input', debouncedSettingsChange);
-    document.getElementById('inputRadius').addEventListener('input', debouncedSettingsChange);
+    document.getElementById('inputRadius').addEventListener('change', onRadiusChange);
+    document.getElementById('inputRadius').addEventListener('input', debouncedRadiusChange);
 
     document.getElementById('autoRefresh').addEventListener('change', (e) => {
       if (e.target.checked) {
